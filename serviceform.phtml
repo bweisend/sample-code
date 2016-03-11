@@ -1,0 +1,1116 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<meta http-equiv="X-UA-Compatible" content="IE=9; IE=8; IE=7; IE=EDGE" />
+		<?php 	
+			echo $this->headLink()	
+			->appendStylesheet(PROJECT_PATH.'/public/css/styles.css')
+			->appendStylesheet(PROJECT_PATH.'/public/styles/styles.css')
+			->appendStylesheet(PROJECT_PATH.'/public/css/basic.css')
+			->appendStylesheet(PROJECT_PATH.'/public/css/jquery-ui-1.10.3.custom.min.css')
+			->appendStylesheet(PROJECT_PATH.'/public/css/jquery-ui-timepicker-addon.css')
+			->appendStylesheet(PROJECT_PATH.'/public/js/tooltipster/css/tooltipster.css')
+			->appendStylesheet(PROJECT_PATH.'/public/css/netsrm.css')
+			->appendStylesheet(PROJECT_PATH.'/public/js/FlexBox/css/jquery.flexbox.css')							
+			;
+			echo $this->headScript()	
+			->appendFile(PROJECT_PATH.'/public/js/jquery-1.7.2.min.js')	
+			->appendFile(PROJECT_PATH.'/public/js/jquery-ui-1.10.3.custom.min.js')	
+			->appendFile(PROJECT_PATH.'/public/js/tooltipster/js/jquery.tooltipster.min.js')	
+			->appendFile(PROJECT_PATH.'/public/js/_lib/jquery.cookie.js')	
+			->appendFile(PROJECT_PATH.'/public/js/json2.js')
+			->appendFile(PROJECT_PATH.'/public/js/modal.js')
+			->appendFile(PROJECT_PATH.'/public/js/jquery-ui-timepicker-addon.js')
+			->appendFile(PROJECT_PATH.'/public/js/FlexBox/js/jquery.flexbox.js')
+			;
+			$SSINamespace = new Zend_Session_Namespace('SSINamespace');
+			$isMisc = ($this->ticketType === 'MISC') ? true : false;
+			$watchNotifyOff = "NetSRM Watch Notify Is Off<br><a email=\"1\" ticket=\"" . $this->id . "\" class=\"tooltip_link watch_notify_tooltip_request \" href=\"javascript:void(0);\">Turn On (with external email)<br/><a email=\"0\" ticket=\"" . $this->id . "\" class=\"tooltip_link watch_notify_tooltip_request \" href=\"javascript:void(0);\">Turn On (without external email)</a>";
+			
+			// TASK ID FROM NETSRM
+			$taskId = $this->taskId;
+		?>
+		<style>
+			#firewall_rules {
+				display: <?php echo ($isMisc) ? 'none' : 'block'; ?>;
+			}
+			textarea {
+				height:35px;
+				width:368px;
+			}
+			td {
+				vertical-align: top;
+				border: none;
+			}
+			.boldtxt {
+				background-color:#000; 
+				color:#fff;
+			}
+			select {
+				width: 173px;
+			}
+			.f_label {
+				font-weight:bold;
+				color:#000;
+				font-size:10px;
+			}
+			#firemon_form input[type="text"] {
+				width: 168px !important;
+			}
+			.tooltip_link:hover {
+				background-color:#0198C7;
+			}
+			#watch_notify_text {
+				background-color:#0198C7;
+				color:white;
+				padding:3px;
+			}
+			.label_div {
+				float:left;
+				width:200px;
+				color:#000;
+			}
+			#firemon_form #billingCodeCostCenterflex_input {
+				width: 370px !important;
+				height: 13px;
+				border: 1px solid #AAAAAA;
+			}
+			.requirements_input {
+				min-width:100px;
+				max-width:100px;
+			}
+			.requirements_select {
+				min-width:100px;
+				max-width:100px;
+				padding-top:3px;
+				padding-bottom:3px;
+			}
+			.requirements_div {
+				white-space:nowrap;
+				padding-right:10px;
+			}
+			.ffb-input {
+				width: 100px !important;
+				height: 15px;
+				border: 1px solid #AAAAAA;
+				padding: 0px;
+			}
+			.portflex {
+				padding-top: 1px;
+				height: 6px !important;
+			}
+			.btnNext {
+				width: 150px;
+				margin-bottom: 5px;
+				clear: both;
+			}
+		</style>
+
+		<script type="text/javascript">
+			// since trim() doesn't work in IE8...
+			if (typeof String.prototype.trim !== 'function') {
+				String.prototype.trim = function() {
+					return this.replace(/^\s+|\s+$/g, ''); 
+				}
+			}
+			
+			$(document).ready(function() {
+				// HIDE ADD BUTTONS ON MAIN FORM
+				try {
+					window.parent.$('.done2').each(function(){$(this).hide();});
+					window.parent.$('.serviceFormIframe').find('iframe').css('height','800px');
+				} catch(e) {
+					parent.window.postMessage('hideAdd','*');
+					parent.window.postMessage('serviceFormIframeHeight800','*');
+				}
+				
+				var ticketType = '<?php echo $this->ticketType ?>';
+				var addRow = '';
+				var numRows = 1;
+				var protocolHTML = '';
+				var ruleArray = new Array();
+				
+				$('.btnNext').click(function(e) {
+					$('#ticketType').val($(this).attr('id'));
+					$('#ticket_type_form').submit();
+				});
+				
+				/**
+				 * ADD A SOURCE/DEST/PROTOCOL/PORT TO AN EXISTING ROW
+				 */
+				$('.addmore').live('click',function() {
+					var theDiv = $(this).parent();
+					var index = parseInt(theDiv.attr('id').slice(-1));
+					if (!(ruleArray[index])) {
+						ruleArray[index] = 2;
+					} else {
+						ruleArray[index]++;
+					}
+					var divName = (theDiv.attr('id').indexOf('source') !== -1) ? 'source' : 'destination';
+					var sourceDiv = $('#source_div_' + index);
+					var destDiv = $('#destination_div_' + index);
+					var portDiv = $('#port_div_' + index);
+					var protocolDiv = $('#protocol_div_' + index);
+					
+					if (divName === 'source') {
+						$('#add_dest_'+index).hide();
+					} else {
+						$('#add_source_'+index).hide();
+					}
+					
+					var newSourceDest = '<br/><input class="requirements_input" id="' + divName + '_' + index + '-' + ruleArray[index] + '" name="' + divName + '_' + index + '-' + ruleArray[index] + '" type="text">';
+					theDiv.append(newSourceDest);
+					
+					var newProtocol = protocolHTML.replace(new RegExp('-1', 'g'), '-' + ruleArray[index]);
+					newProtocol = newProtocol.replace(new RegExp('_1', 'g'), '_' + index);
+					protocolDiv.append('<br/>' + newProtocol);
+					
+					portDiv.append('<br/><input id="port_' + index + '-' + ruleArray[index] + '" name="port_' + index + '-' + ruleArray[index] + '" type="text"/>');
+					
+					init_flexboxport(index, ruleArray[index]);
+				});
+				
+				/**
+				 * COPY A ROW ("Duplicate")
+				 */
+				$('.requirements_duplicate').live('click',function() {
+					// GET ROW #
+					var theRow = $(this).closest('tr');
+					var index = parseInt($(this).attr('id').slice(-1));
+					
+					// INCREMENT ROW COUNT AND GET # OF INSTANCES FOR THE ROW
+					numRows++;
+					ruleArray[numRows] = ruleArray[index];
+					
+					// REPLACE OLD ROW ELEMENT NAMES WITH NEW ONES (to preserve uniqueness)
+					var newRow = theRow.html().replace(new RegExp('_'+index, 'g'), '_'+numRows);
+					newRow = newRow.replace(new RegExp('hasDatepicker', 'g'), '');
+					
+					// ADD THE COPIED ROW AND CHANGE THE ROW #
+					$('#row_'+numRows).html(newRow);
+					$('#rownum_'+numRows).html(""+numRows);
+
+					// REMOVE UNNEEDED PORT FLEXBOX MARKUP
+					var i=1;
+					while ($('#port_'+numRows+'-'+i+'flex').length > 0) {
+						$('#port_'+numRows+'-'+i+'flex').remove();
+						i++;
+					}
+
+					// INIT DATEPICKER
+					$('.datepicker').datepicker({ 
+						minDate: new Date(), 
+						constrainInput: true 
+					});
+					
+					// INIT PORT FLEXBOX(ES)
+					$('[id^=port_'+numRows+']').each(function() {
+						var name = $(this).attr('id');
+						if (name.match(/^port_\d\d?-\d\d?$/)) {
+							var instance = $(this).attr('id').slice(-1);
+							init_flexboxport(numRows, instance);
+						}
+					});
+					
+					// COPY FORM DATA FROM OLD ROW TO NEW ROW
+					i=1;
+					$('#source_'+numRows+'-'+i).val($('#source_'+index+'-'+i).val());
+					$('#destination_'+numRows+'-'+i).val($('#destination_'+index+'-'+i).val());
+					$('#protocol_'+numRows+'-'+i).val($('#protocol_'+index+'-'+i).val());
+					$('#port_'+numRows+'-'+i+'flex').val($('#port_'+index+'-'+i+'flex').val());
+					$('#port_'+numRows+'-'+i+'flex_input').val($('#port_'+index+'-'+i+'flex_input').val());
+					$('#port_'+numRows+'-'+i+'flex_hidden').val($('#port_'+index+'-'+i+'flex_hidden').val());
+					$('#action_'+numRows).val($('#action_'+index).val());
+					$('#expireDate_'+numRows).val($('#expireDate_'+index).val());
+					$('#reviewDate_'+numRows).val($('#reviewDate_'+index).val());
+					i++;
+					
+					// CHECK FOR OTHER INSTANCES OF SOURCE/DEST/PROTOCOL/PORT
+					while ($('#protocol_'+index+'-'+i).length > 0) {
+						$('#source_'+numRows+'-'+i).val($('#source_'+index+'-'+i).val());
+						$('#destination_'+numRows+'-'+i).val($('#destination_'+index+'-'+i).val());
+						$('#protocol_'+numRows+'-'+i).val($('#protocol_'+index+'-'+i).val());
+						$('#port_'+numRows+'-'+i+'flex').val($('#port_'+index+'-'+i+'flex').val());
+						$('#port_'+numRows+'-'+i+'flex_input').val($('#port_'+index+'-'+i+'flex_input').val());
+						$('#port_'+numRows+'-'+i+'flex_hidden').val($('#port_'+index+'-'+i+'flex_hidden').val());
+						i++;
+					}
+					
+				});
+				
+				/**
+				 * ADD A BLANK ROW ('Add' button)
+				 */
+				$('#addrow').live('click',function() {
+					numRows++;
+					var newRow = addRow.replace(new RegExp('_1', 'g'), '_'+numRows);
+					newRow = newRow.replace(new RegExp('hasDatepicker', 'g'), '');
+					$('#row_'+numRows).html(newRow);
+					$('#rownum_'+numRows).html(""+numRows);
+					$('.datepicker').datepicker({ 
+						minDate: new Date(), 
+						constrainInput: true 
+					});
+					init_flexboxport(numRows, 1);
+				});
+				
+				/**
+				 * DELETE ROW
+				 */
+				$('.requirements_delete').live('click',function() {
+					if (numRows < 2) {
+						alert("At least one firewall rule must be specified.");
+					} else {
+						var theRow = $(this).closest('tr');
+						theRow.html('');
+						numRows--;
+					}
+				});
+				
+				$('.tooltip').tooltipster({
+					position: 'bottom',
+					animation: 'grow',
+					arrowColor: '#000',
+					maxWidth: 280,
+					interactive: true,
+					delay: 0
+				});
+
+				$('.datepicker').datepicker({ 
+					minDate: new Date(), 
+					constrainInput: true 
+				});
+	
+				$('#dueTimeStart').timepicker({
+					timeOnlyTitle: "Choose Start Time",
+					timeFormat: 'h:mm TT',
+					stepMinute: 5
+				});
+	
+				$('#dueTimeEnd').timepicker({
+					timeOnlyTitle: "Choose End Time",
+					timeFormat: 'h:mm TT',
+					stepMinute: 5
+				});
+	
+				function updateBreadCrumbs() {
+					$('#breadcrumbs').html('');
+					if ($('#DomainName').val()) {
+						$('#breadcrumbs').append('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + $('#DomainName option:selected').text());
+						if ($('#DeviceGroup').val()) {
+							$('#breadcrumbs').append('&nbsp;&nbsp;<img height="14" src="<?php echo SITE_URL ?>public/images/rightarrow.png">&nbsp;&nbsp;' + $('#DeviceGroup option:selected').text());
+							if ($('#Device').val()) {
+								$('#breadcrumbs').append('&nbsp;&nbsp;<img height="14" src="<?php echo SITE_URL ?>public/images/rightarrow.png">&nbsp;&nbsp;' + $('#Device option:selected').text());
+							}							
+						}
+					}
+				}
+				
+				$('#region').change(function() {
+					var domain = document.getElementById("DomainName");
+					var deviceGroup = document.getElementById("DeviceGroup");
+					var device = document.getElementById("Device");
+					var domainLoad = document.getElementById("load_img_domain");
+					domain.disabled = false;
+					domain.value = "";
+					deviceGroup.disabled = true;
+					deviceGroup.value = "";
+					device.disabled = true;
+					device.value = "";
+					domainLoad.style.display = "inline";
+					changeDot(this);
+					changeDot(domain);
+					//changeDot(deviceGroup);
+					//changeDot(device);
+					updateBreadCrumbs();
+					
+					$.ajax({
+						async: true,
+						url: '<?php echo SITE_URL ?>firemon/fetchdomains/id/' + $(this).val()
+					}).done(function(ret) { 
+						$('#DomainName').html(ret);
+						domainLoad.style.display = "none";
+					});
+				});
+			
+				$('#DomainName').change(function() {
+					if ($(this).val() === 'X') {
+						showTheMessage();
+					} else {
+						var theRegion = document.getElementById("region");
+						var deviceGroup = document.getElementById("DeviceGroup");
+						var device = document.getElementById("Device");
+						var deviceGroupLoad = document.getElementById("load_img_device_group");
+						deviceGroup.disabled = false;
+						deviceGroup.value = "";
+						device.disabled = true;
+						device.value = "";
+						deviceGroupLoad.style.display = "inline";
+						changeDot(this);
+						//changeDot(deviceGroup);
+						//changeDot(device);
+						updateBreadCrumbs();
+
+						$.ajax({
+							async: true,
+							url: '<?php echo SITE_URL ?>firemon/fetchdevicegroups/id/' + $(this).val() + '/region/' + theRegion.value
+						}).done(function(ret) { 
+							$('#DeviceGroup').html(ret);
+							deviceGroupLoad.style.display = "none";
+						});
+					}
+				});
+			
+				$('#DeviceGroup').change(function() {
+					if ($(this).val() === 'X') {
+						showTheMessage();
+					} else {
+						var theRegion = document.getElementById("region");
+						var theDomain = document.getElementById("DomainName");
+						var device = document.getElementById("Device");
+						var deviceLoad = document.getElementById("load_img_device");
+						device.disabled = false;
+						device.value = "";
+						//changeDot(this);
+						//changeDot(device);
+						deviceLoad.style.display = "inline";
+						updateBreadCrumbs();
+
+						$.ajax({
+							async: true,
+							url: '<?php echo SITE_URL ?>firemon/fetchdevices/id/' + $(this).val() + '/region/' + theRegion.value + '/domain/' + theDomain.value
+						}).done(function(ret) { 
+							$('#Device').html(ret);
+							deviceLoad.style.display = "none";
+						});
+					}
+				});
+
+				function validateForm() {
+					//var q = document.getElementById('question').value.trim();
+					//var d = document.getElementById('Device').value.trim();
+					var d = document.getElementById('DomainName').value.trim();
+					//if (q === 'no') d = true;
+					//var rn = document.getElementById('requesterName').value.trim();
+					//var re = document.getElementById('requesterEmail').value.trim();
+					var s = document.getElementById('summary').value.trim();
+					//var bc = document.getElementById('billingCodeCostCenter').value.trim();
+					var bc = true;
+					var i = document.getElementById('impact').value.trim();
+					var c = document.getElementById('compassWBS').value.trim();
+					var n = document.getElementById('notes').value.trim();
+					if (ticketType !== 'MISC') n = true;
+					//return (d && rn && re && s && bc && i && q && c && n) ? true : false;
+					return (d && s && bc && i && c && n) ? true : false;
+				}
+				
+				$('#watch_notify,.tooltip_link').live('click', function() {
+					var isOn = $('#watchNotifyValue').val();
+					var hasEmail = $(this).attr('email');
+					var wnVal = '0';
+					var wnTooltip = '<?php echo $watchNotifyOff; ?>';
+					var wnText = 'NetSRM Watch/Notify Is Off';
+					var wnImg = 'watch_off.png';
+					if (isOn === '0') {
+						if (hasEmail === '1') {
+							wnVal = '2';
+							wnText = 'NetSRM Watch/Notify Is On (with external email)';
+						} else {
+							wnVal = '1';
+							wnText = 'NetSRM Watch/Notify Is On (without external email)';
+						}
+						wnImg = 'watch.png';
+						wnTooltip = wnText;
+					}
+					$('#watch_notify').tooltipster('update', wnTooltip);
+					$('#watch_notify_text').html(wnText);
+					$('#watch_notify_img').attr('src', '<?php echo SITE_URL ?>public/images/NetSRM%20Icons/Launch%20Page%20Icons/Critical%20Icons/' + wnImg);
+					$('#watchNotifyValue').val(wnVal);
+				});
+				
+				function changeDot(obj) {
+					var theDot = (obj.value.trim() === '') ? 'reddot.png' : 'greendot.png';
+					document.getElementById(obj.name + '_dot').src = "<?php echo SITE_URL ?>public/images/" + theDot;
+					//document.getElementById('btnDone').disabled = !(validateForm());
+					if (validateForm()) {
+						$('#btnDone').removeClass('hp-disabled');
+						$('#btnDone').addClass('hp-critical');
+					} else {
+						$('#btnDone').removeClass('hp-critical');
+						$('#btnDone').addClass('hp-disabled');
+					}
+				}
+				
+				//$('#billingCodeCostCenter,#summary,#impact,#question,#compassWBS,#region').change(function() {
+				//$('#billingCodeCostCenterflex,#summary,#impact,#compassWBS,#region').change(function() {
+				//$('#billingCodeCostCenterflex_input,#summary,#impact,#compassWBS,#region').change(function() {
+				//$('#billingCodeCostCenter,#summary,#impact,#compassWBS,#region').change(function() {
+				$('#summary,#impact,#compassWBS,#region').change(function() {
+					changeDot(this);
+				});
+
+				function showTheMessage() {
+					var theMessage = 'If your domain, device group or device is not in the list, please cancel this task and use your existing firewall modify procedures.';
+					alert(theMessage);
+					//$('#action_window_content').html(theMessage);
+				}
+				
+				$('#Device').change(function() {
+					if ($(this).val() === 'X') {
+						showTheMessage();
+					} else {
+						//changeDot(this);
+						updateBreadCrumbs();
+					}
+				});
+
+<?php if ($isMisc) { ?>								
+				$('#notes').change(function() {
+					changeDot(this);
+				});
+
+				$('#enable_requirements').change(function() {
+					if ($(this).val() === '1') {
+						$('#firewall_rules').show();
+					} else {
+						$('#firewall_rules').hide();
+					}
+				});
+<?php } ?>							
+
+				/*
+				$('#question').change(function() {
+					if ($(this).val() === 'yes') {
+						$('#firewall_info').show();
+					} else {
+						$('#firewall_info').hide();
+						$('#action_window_content').html('If you do not know the region, domain, device group and device for the firewall, your ticket will be forwarded to the appropriate queue to be completed and submitted. Please note, this will attract additional charges as the request is no longer a standard firewall request.<br/><br/>');
+					}
+				});
+				*/
+			 
+				$('#designRequired').change(function() {
+					if ($(this).val() === 'true') {
+						$('#action_window_content').html('If this ticket requires a designer, it will be forwarded to the appropriate queue to be completed and submitted.<br/><br/>');
+					}
+				});
+				
+				/** BILLING CODE FLEXBOX **/
+				$("#billingCodeCostCenter").hide().after("<div id='billingCodeCostCenterflex'></div>");
+				$( "#billingCodeCostCenterflex" ).flexbox("<?php echo SITE_URL ?>home/billingsearch",{
+					queryDelay: 500,
+					minChars: 0,
+					showArrow:false,
+					width: '200px',
+					highlightMatches: false,
+					resultTemplate: 'HP: {hp_code} SAP: {sap_code}<br>SCS: {scs_code} Customer: {customer_name}',
+					displayValue: '{hp_code} / {sap_code} ({customer_name})',
+					hiddenValue: '{scs_code}',
+					containerClass: 'ffb ui-autocomplete ui-front ui-menu ui-widget ui-corner-all',
+					selectClass: 'ui-state-focus',
+					contentClass: 'content ui-widget-content',
+					onSelect: function() {
+						if(this.value!='') {
+							$( "#billingCode" ).val(this.value);
+							$( "#billingCodeCostCenterflex_input" ).val(this.value);
+						}
+					},
+					customParams: function(params) {
+						params['account'] = '<?php echo $SSINamespace->netsrm_request_data['customer_name'] ?>';
+					},
+					initialValue: '<?php echo $SSINamespace->netsrm_request_data['bill_code'] ?>',
+					paging: {
+						first: '<img src="<?php echo SITE_URL ?>public/images/arrow_left_all.png">',
+						prev: '<img src="<?php echo SITE_URL ?>public/images/arrow_left.png">',
+						next: '<img src="<?php echo SITE_URL ?>public/images/arrow_right.png">',
+						last: '<img src="<?php echo SITE_URL ?>public/images/arrow_right_all.png">'
+					}
+				});
+
+				$('#billingCodeCostCenterflex_input').live('click',function(){
+					if($('#billingCodeCostCenterflex_input').val()=='') {
+						var e = jQuery.Event("keydown");
+						e.keyCode = 8;
+						$("#billingCodeCostCenterflex_input").trigger(e);
+					}
+				});
+
+				$( '#billingCodeCostCenterflex' ).dblclick(function(){
+					$( '#billingCodeCostCenter' ).autocomplete('search', '');
+				});
+
+				/** PORT FLEXBOX **/
+				function init_flexboxport(row, instance) {
+					$("#port_" + row + "-" + instance).hide().after("<div class='portflex' id='port_" + row + "-" + instance + "flex'></div>");
+					$("#port_" + row + "-" + instance + "flex" ).flexbox("<?php echo SITE_URL ?>firemon/flexboxport",{
+						queryDelay: 500,
+						minChars: 1,
+						showArrow:false,
+						width: '100px',
+						highlightMatches: false,
+						resultTemplate: 'Port: {port_id}<br>Protocol: {protocol}<br>Service Name: {service_name}<br>Aliases: {aliases}<br>Comment: {comment}',
+						displayValue: '{port_id}',
+						hiddenValue: '{port_id}',
+						containerClass: 'ffb ui-autocomplete ui-front ui-menu ui-widget ui-corner-all',
+						selectClass: 'ui-state-focus',
+						contentClass: 'content ui-widget-content',
+						onSelect: function() {
+							if(this.value!='') {
+								$( "#port_" + row + "-" + instance).val(this.value);
+								$( "#port_" + row + "-" + instance + "flex_input" ).val(this.value);
+							}
+						},
+						paging: {
+							first: '<img src="<?php echo SITE_URL ?>public/images/arrow_left_all.png">',
+							prev: '<img src="<?php echo SITE_URL ?>public/images/arrow_left.png">',
+							next: '<img src="<?php echo SITE_URL ?>public/images/arrow_right.png">',
+							last: '<img src="<?php echo SITE_URL ?>public/images/arrow_right_all.png">'
+						}
+					});
+
+					$("#port_" + row + "-" + instance + "flex_input").live('click',function(){
+						if($("#port_" + row + "-" + instance + "flex_input").val()=='') {
+							var e = jQuery.Event("keydown");
+							e.keyCode = 8;
+							$("#port_" + row + "-" + instance + "flex_input").trigger(e);
+						}
+					});
+
+					$("#port_" + row + "-" + instance + "flex").dblclick(function(){
+						$("#port_" + row + "-" + instance).autocomplete('search', '');
+					});
+				}
+				
+				addRow = $('#row_1').html();
+				init_flexboxport(1,1);
+				
+				$('#btnDone').click(function(e) {
+					if (!($('#btnDone').hasClass('hp-disabled'))) {
+						$('#action_window_content').html('');
+						if ($('#ticketType').val() === 'FIREWALL' || $('#ticketType').val() === 'MISC' && $('#enable_requirements').val() === '1') {
+							var isValid = true;
+							var sourceVal = $('#source_1-1').val();
+							var destinationVal = $('#destination_1-1').val();
+							var protocolVal = $('#protocol_1-1').val();
+							var portVal = $('#port_1-1flex_hidden').val();
+							var isSourceOK = checkIP(sourceVal);
+							var isDestinationOK = checkIP(destinationVal);
+							if (!(isSourceOK || isDestinationOK)) {
+								isValid = false;
+								$('#action_window_content').append('Source or Destination must have a valid IP address.<br/><br/>');
+							}
+							if (!protocolVal) {
+								isValid = false;
+								$('#action_window_content').append('Protocol is a required field<br/><br/>');
+							}
+							if (!portVal) {
+								isValid = false;
+								$('#action_window_content').append('Port is a required field<br/><br/>');
+							}
+							if (!isValid) {
+								e.preventDefault();
+								return false;
+							}
+						}
+						$('#firemon_form').submit();
+					}
+				});
+
+				/*
+				 * 'ip' must be in one of the following formats:
+				 * * (single asterisk)
+				 * ANY (case insensitive)
+				 * 192.168.0.0
+				 * 192.168.0.0/24
+				 * 192.168.0.0 255.255.255.0
+				 */
+				function checkIP(ip) {
+					var x = ip.split("."), x1, x2, x3, x4;
+
+					if (x.length === 4) {
+						x1 = parseInt(x[0], 10);
+						x2 = parseInt(x[1], 10);
+						x3 = parseInt(x[2], 10);
+						x4 = parseInt(x[3], 10);
+
+						if (isNaN(x1) || isNaN(x2) || isNaN(x3) || isNaN(x4)) {
+							return false;
+						}
+
+						if ((x1 >= 0 && x1 <= 255) && (x2 >= 0 && x2 <= 255) && (x3 >= 0 && x3 <= 255) && (x4 >= 0 && x4 <= 255)) {
+							return true;
+						}
+					}
+					return false;
+				}				
+
+				if (document.getElementById('compassWBS')) {
+					changeDot(document.getElementById('compassWBS'));
+					//changeDot(document.getElementById('billingCodeCostCenter'));
+				}
+				
+				protocolHTML = $('#protocol_div_1').html();
+
+			});
+
+		</script>
+
+	</head>
+
+	<body>
+		<div style="display: none;" class="dvLoading"></div>
+<?php 
+	if (isset($this->ticketType)) {
+		$ticketTypeArr = array(
+			"FIREWALL" => "FIREWALL RULE REQUEST",
+			"BREAKFIX" => "FIREWALL BREAK/FIX",
+			"MISC" => "FIREWALL MISCELLANEOUS"
+		);
+?>
+		<form id="firemon_form" method="post" action="<?php echo SITE_URL ?>firemon/saveticket" enctype="multipart/form-data"> 
+			
+			<!-- HIDDEN FIELDS -->
+			<input type="hidden" id="watchNotifyValue" name="watchNotifyValue" value="0"/>
+			<input type="hidden" id="ticketType" name="ticketType" value="<?php echo $this->ticketType ?>"/>
+			<input type="hidden" id="customer" name="customer" value="<?php echo $SSINamespace->netsrm_request_data['customer_name'] ?>"/>
+			<input type="hidden" id="netsrmServiceRequestId" name="netsrmServiceRequestId" value="<?php echo $SSINamespace->netsrm_request_id ?>"/>
+			<input type="hidden" id="requesterEmail" name="requesterEmail" value="<?php echo $SSINamespace->netsrm_request_data['email'] ?>"/>
+			<input type="hidden" id="requesterName" name="requesterName" value="<?php echo $SSINamespace->netsrm_request_data['name'] ?>"/>
+			<input type="hidden" id="billingCode" name="billingCode" value="<?php echo $SSINamespace->netsrm_request_data['bill_code'] ?>"/>
+			<input type="hidden" id="service_request_actions_id" name="service_request_actions_id" value="<?php echo $taskId ?>"/>			
+			
+			<div class="AddAliasMainBlock" style="text-align:left;background-color:#FFFFFF;float:left;width:98.5%;padding:0 10px 10px 12px;margin-top:15px;">
+				<div class="simple_btn" style="margin-top:3px;width:1112px;">
+					<div style="text-align:middle;padding:3px 0 0 5%;float:left;width:90%;">
+						<?php echo $ticketTypeArr[$this->ticketType]; ?>
+					</div>
+				</div>
+				<div style="clear:both;height:5px">&nbsp;</div>
+				<div>
+					<div class="information_icon">
+						<a href="#" class="tooltip" title="<?php echo $ticketTypeArr[$this->ticketType]; ?>: Enter the required fields in the form below.">
+							<img src="<?php echo SITE_URL ?>public/images/info.png"/>
+							<span>Information</span>
+						</a>
+					</div>
+				</div>
+				<div style="clear:both;height:10px">&nbsp;</div>
+				<div id="form_section">
+					<div id="alias_left" style="float:left;width:40%;">
+
+						<table width="820"><tr><td width="410">
+
+							<!-- CUSTOMER -->
+							<div class="label_div">
+								<img id="account_dot" src="<?php echo SITE_URL ?>public/images/greendot.png" width="10"/> 
+								<span class="f_label">Customer:</span>
+							</div>
+							<div style="float:left;">
+								<span class='f_label'><?php echo $SSINamespace->netsrm_request_data['customer_name'] ?></span>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- REQUESTOR NAME -->
+							<div class="label_div">
+								<img id="requesterName_dot" src="<?php echo SITE_URL ?>public/images/greendot.png" width="10"/> 
+								<span class="f_label">Requestor Name:</span>
+							</div>
+							<div style="float:left;">
+								<span class="f_label"><?php echo $SSINamespace->netsrm_request_data['name'] ?></span>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- REQUESTOR EMAIL -->
+							<div class="label_div">
+								<img id="requesterEmail_dot" src="<?php echo SITE_URL ?>public/images/greendot.png" width="10"/> 
+								<span class="f_label">Requestor Email:</span>
+							</div>
+							<div style="float:left;">
+								<span class="f_label"><?php echo $SSINamespace->netsrm_request_data['email'] ?></span>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- COMPASS WBS (append to end of billing code when sending via API -->
+							<div class="label_div">
+								 <img id="compassWBS_dot" src="<?php echo SITE_URL ?>public/images/reddot.png" width="10"/> 
+								<span class="f_label">WBS/Compass:</span>
+							</div>
+							<div style="float:left;">
+								<input name="compassWBS" id="compassWBS" type="text" value="<?php echo $SSINamespace->netsrm_request_data['wbs_code'] ?>"/>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- BILLING CODE / COST CENTER -->
+							<div class="label_div">
+								<img id="billingCodeCostCenter_dot" src="<?php echo SITE_URL ?>public/images/greendot.png" width="10"/> 
+								<span class="f_label">Billing Code / Cost Center:</span>
+							</div>
+							<div style="float:left;">
+								<input name="billingCodeCostCenter" id="billingCodeCostCenter" type="text" value="<?php echo $SSINamespace->netsrm_request_data['bill_code'] ?>"/>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- SUMMARY -->
+							<div class="label_div">
+								<img id="summary_dot" src="<?php echo SITE_URL ?>public/images/reddot.png" width="10"/> 
+								<span class="f_label">Summary:</span>
+							</div>
+							<div style="float:left;">
+								<textarea name="summary" id="summary"></textarea>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- QUESTION -->
+							<!--
+							<div class="label_div">
+								<img id="question_dot" src="<?php echo SITE_URL ?>public/images/reddot.png" width="10"/> 
+								<span class="f_label">Do you know the region, domain, <br/>device group and device of <br/>the firewall?</span>
+							</div>
+							<div style="float:left;">
+								<select name="question" id="question"/>
+									<option selected="selected" value="">Please Select...</option>
+									<option value="yes">Yes</option>
+									<option value="no">No</option>
+								</select>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+							-->
+
+							<!--<div id="firewall_info" style="display:none;">-->
+							<div id="firewall_info">
+								<!-- REGION -->
+								<div class="label_div">
+									<img id="region_dot" src="<?php echo SITE_URL ?>public/images/reddot.png" width="10"/> 
+									<img class="tooltip" title="Selecting a Region will enable and populate the list of Domains" src="<?php echo SITE_URL ?>public/images/info.png" width="10"/> 
+									<span class="f_label">Region:</span>
+								</div>
+								<div style="float:left;">
+									<select name="region" id="region"/>
+										<option selected="selected" value="">Please Select...</option>
+										<?php echo $this->regions; ?>
+									</select>
+								</div>
+								<div style="clear:both;height:10px">&nbsp;</div>
+
+								<!-- DOMAIN -->
+								<div class="label_div">
+									<img id="DomainName_dot" src="<?php echo SITE_URL ?>public/images/reddot.png" width="10"/> 
+									<img class="tooltip" title="Selecting a Domain will enable and populate the list of Device Groups" src="<?php echo SITE_URL ?>public/images/info.png" width="10"/> 
+									<span class="f_label">Domain:</span>
+								</div>
+								<div style="float:left;">
+									<select disabled="disabled" name="DomainName" id="DomainName">
+										<option selected="selected" value="">Please Select...</option>
+									</select>
+									<img id="load_img_domain" style="vertical-align:middle;display:none" src="<?php echo SITE_URL ?>public/images/load.gif"/>
+								</div>
+								<div style="clear:both;height:10px">&nbsp;</div>
+
+								<!-- DEVICE GROUP -->
+								<div class="label_div">
+									<!--<img id="DeviceGroup_dot" src="<?php echo SITE_URL ?>public/images/reddot.png" width="10"/> -->
+									<img class="tooltip" title="Selecting a Device Group will enable and populate the list of Devices" src="<?php echo SITE_URL ?>public/images/info.png" width="10"/> 
+									<span class="f_label">Device Group:</span>
+								</div>
+								<div style="float:left;">
+									<select disabled="disabled" name="DeviceGroup" id="DeviceGroup">
+										<option selected="selected" value="">Please Select...</option>
+									</select>
+									<img id="load_img_device_group" style="vertical-align:middle;display:none" src="<?php echo SITE_URL ?>public/images/load.gif"/>
+								</div>
+								<div style="clear:both;height:10px">&nbsp;</div>
+
+								<!-- DEVICE -->
+								<div class="label_div">
+									<!--<img id="Device_dot" src="<?php echo SITE_URL ?>public/images/reddot.png" width="10"/> -->
+									<img class="tooltip" title="Please select a device" src="<?php echo SITE_URL ?>public/images/info.png" width="10"/> 
+									<span class="f_label">Device / Firewall Host Name:</span>
+								</div>
+								<div style="float:left;">
+									<select name="Device" id="Device" disabled="disabled">
+										<option selected="selected" value="">Please Select...</option>
+									</select>
+									<img id="load_img_device" style="vertical-align:middle;display:none" src="<?php echo SITE_URL ?>public/images/load.gif"/>
+								</div>
+								<div style="clear:both;height:10px">&nbsp;</div>
+							</div> <!-- end "firewall_info" -->
+
+							<!-- IMPACT -->
+							<div class="label_div">
+								<img id="impact_dot" src="<?php echo SITE_URL ?>public/images/reddot.png" width="10"/> 
+								<span class="f_label">Impact of Rule Change:</span>
+							</div>
+							<div style="float:left;">
+								<select name="impact" id="impact"/>
+									<option selected="selected" value="">Please Select...</option>
+									<option value="NON_IMPACTING">Non-Impacting</option>
+									<option value="NON_IMPACTING_WITH_TIME">Non-Impacting with Specific Time and/or MML</option>
+									<option value="POTENTIALLY_IMPACTING">Potentially Impacting</option>
+								</select>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- NOTES -->
+							<div class="label_div">
+		<?php 
+								if ($isMisc) { 
+									echo '<img id="notes_dot" src="' . SITE_URL . 'public/images/reddot.png" width="10"/>';
+								}
+		?>							
+								<span class="f_label">Notes:</span>
+							</div>
+							<div style="float:left;">
+								<textarea name="notes" id="notes"></textarea>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+		<?php if ($isMisc) { ?>							
+							<!-- ENABLE REQUIREMENTS -->
+							<div class="label_div">
+								<span class="f_label">Enable Requirements:</span>
+							</div>
+							<div style="float:left;">
+								<select name="enable_requirements" id="enable_requirements"/>
+									<option value="1">Yes</option>
+									<option value="0" selected="true">No</option>
+								</select>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+		<?php } ?>							
+
+						</td><td width="410" style="vertical-align:top">
+
+							<!-- PRIORITY -->
+							<div class="label_div">
+								<span class="f_label">Priority:</span>
+							</div>
+							<div style="float:left;">
+								<select name="priority" id="priority">
+									<option selected="selected" value="">Please Select...</option>
+									<option value="NORMAL">Normal</option>
+									<option value="URGENT">Urgent</option>
+								</select>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- DUE DATE (populate from service request) -->
+							<div class="label_div">
+								<span class="f_label">Target Date Implementation:</span>
+							</div>
+							<div style="float:left;">
+								<input class="datepicker" name="dueDate" id="dueDate" type="text" readonly="readonly" value="<?php echo $SSINamespace->netsrm_request_data['date'] ?>"/>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- START TIME -->
+							<div class="label_div">
+								<span class="f_label">Start Time Implementation:</span>
+							</div>
+							<div style="float:left;">
+								<input name="dueTimeStart" id="dueTimeStart" type="text" value=""/>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- END TIME -->
+							<div class="label_div">
+								<span class="f_label">End Time Implementation:</span>
+							</div>
+							<div style="float:left;">
+								<input name="dueTimeEnd" id="dueTimeEnd" type="text"/>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- TIMEZONE -->
+							<div class="label_div">
+								<img id="timezone_dot" style="display:none" src="<?php echo SITE_URL ?>public/images/reddot.png" width="10"/> 
+								<span class="f_label">Timezone:</span>
+							</div>
+							<div style="float:left;">
+								<select name="timezone" id="timezone">
+									<option selected="selected" value="a">Please Select...</option>
+									<?php echo $this->timezones; ?>
+								</select>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- DESIGN REQUIRED -->
+							<div class="label_div">
+								<span class="f_label">Design Required:</span>
+							</div>
+							<div style="float:left;">
+								<select name="designRequired" id="designRequired">
+									<option selected="selected" value="">Please Select...</option>
+									<option value="true">Yes</option>
+									<option value="false">No</option>
+								</select>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+		<?php	if ($this->ticketType === "FIREWALL" || $isMisc) { ?>
+
+							<!-- CHANGE CONTROL -->
+							<div class="label_div">
+								<span class="f_label">Change Control:</span>
+							</div>
+							<div style="float:left;">
+								<select name="changeCtrl" id="changeCtrl">
+									<option selected="selected" value="">Please Select...</option>
+									<option value="true">Yes</option>
+									<option value="false">No</option>
+								</select>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- CHANGE CONTROL FREEZE -->
+							<div class="label_div">
+								<span class="f_label">Change Control Freeze:</span>
+							</div>
+							<div style="float:left;">
+								<select name="changeCtrlFreeze" id="changeCtrlFreeze">
+									<option selected="selected" value="">Please Select...</option>
+									<option value="true">Yes</option>
+									<option value="false">No</option>
+								</select>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+		<?php } ?>
+
+							<!-- BUSINESS UNIT -->
+							<div class="label_div">
+								<span class="f_label">Business Unit:</span>
+							</div>
+							<div style="float:left;">
+								<input name="businessUnit" id="businessUnit" type="text"/>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- BUSINESS OWNER -->
+							<div class="label_div">
+								<span class="f_label">Business Owner:</span>
+							</div>
+							<div style="float:left;">
+								<input name="businessOwner" id="businessOwner" type="text"/>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- EXTERNAL TICKET ID (populate from service request) -->
+							<div class="label_div">
+								<span class="f_label">External Ticket ID:</span>
+							</div>
+							<div style="float:left;">
+								<input name="externalTicketId" id="externalTicketId" type="text" value="<?php echo $SSINamespace->netsrm_request_id ?>"/>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- CARBON COPY -->
+							<div class="label_div">
+								<span class="f_label">Additional Email Notification:</span>
+							</div>
+							<div style="float:left;">
+								<input name="carbonCopy" id="carbonCopy" type="text"/>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- JUSTIFICATION -->
+							<div class="label_div">
+								<span class="f_label">Justification:</span>
+							</div>
+							<div style="float:left;">
+								<textarea name="justification" id="justification"></textarea>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- START NOTIFICATIONS -->
+							<div class="label_div">
+								<span class="f_label">Policy Planner Email Notifications:</span>
+							</div>
+							<div style="float:left;">
+								<select name="startNotifications" id="startNotifications">
+									<option value="a_create">When this ticket enters a new step</option>
+									<option value="b_assignment">When this ticket is assigned within each step</option>
+									<option value="c_create,assignment">Both</option>
+									<option selected="selected" value="d_none">Neither</option>
+								</select>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+							<!-- WATCH/NOTIFY -->
+							<div class="label_div">
+								<a id="watch_notify" class="tooltip" title='<?php echo $watchNotifyOff; ?>' href="javascript:void(0);">
+									<img id='watch_notify_img' src="<?php echo SITE_URL ?>public/images/NetSRM%20Icons/Launch%20Page%20Icons/Critical%20Icons/watch_off.png"/>
+								</a>
+								<span class="f_label" id="watch_notify_text">NetSRM Watch/Notify Is Off</span>
+							</div>
+							<div style="clear:both;height:10px">&nbsp;</div>
+
+						</td></tr></table>
+
+					</div><!-- end of alias_left div -->
+
+<?php if ($this->ticketType !== 'BREAKFIX') include 'includes/firewallrules.php' ?>
+
+				</div> <!-- end "form_section" -->
+				<div style="clear:both;height:1px">&nbsp;</div>
+				<a class="hp-button hp-disabled" id="btnDone" href="javascript:void(0)">
+					Done
+				</a>
+				<a class="hp-button hp-secondary" href="javascript:history.back();">
+					Back
+				</a>
+			</div> <!-- end div id="AddAliasMainBlock" -->
+			<div style="float:left;width:.5%;">&nbsp;</div>
+
+			<!-- ACTION WINDOW -->
+			<div style="float:left;width:25%;bbackground-color:cyan;">
+				<div style="position:absolute;left:830px;top:84px;width:300px;background-color:#0198C7;height:131px;min-height:131px;height:auto !important;border:1px solid #DDDDDD;">
+					<!--<div class="subtitle">Action Window</div> -->
+					<div class="simple_btn">
+						<div style="text-align:middle;padding:3px 0 0 5%;float:left;width:90%">
+						Action Window
+						</div>
+					</div>
+					<div id="action_window_content" style="color: rgb(255, 255, 255); padding: 2px; overflow-y: auto; background-color: rgb(1, 152, 199); font-weight: bold; height: 339px; text-align: left">
+					</div>
+				</div>
+			</div>
+
+			<div style="clear:both;height:10px">&nbsp;</div>	
+		</form>
+<?php
+	} else {
+?>
+		<form id="ticket_type_form" method="post" action="<?php echo SITE_URL ?>firemon/serviceform">
+			<input id="ticketType" name="ticketType" value="" type="hidden" />
+			<input type="hidden" id="service_request_actions_id" name="service_request_actions_id" value="<?php echo $taskId ?>"/>			
+			<div class="AddAliasMainBlock" style="text-align:left;background-color:#FFFFFF;float:left;width:98.5%;padding:5px;color:#000;font-size:11px;">
+			<div class="simple_btn" style="margin-top:3px;">
+				<div style="text-align:middle;padding:3px 0 0 5%;float:left;width:90%;">SELECT TICKET TYPE</div>
+			</div>
+			<div style="clear:both;height:5px">&nbsp;</div>
+			<div>
+				<div class="information_icon">
+					<a title="Select a Ticket Type. You will then fill out the service form on the next page." href="#" class="tooltip">
+						<img src="<?php echo SITE_URL ?>public/images/info.png"/> 
+						<span>Information</span>
+					</a>
+				</div>
+			</div>
+			<div style="clear:both;height:10px">&nbsp;</div>
+			<a class="hp-button hp-primary btnNext" id="FIREWALL" href="javascript:void(0)">
+				Firewall Rule Request
+			</a><br/>
+			<!--
+			<a class="hp-button hp-primary btnNext" id="BREAKFIX" href="javascript:void(0)">
+				Break Fix
+			</a><br/>
+			-->
+			<a class="hp-button hp-primary btnNext" id="MISC" href="javascript:void(0)">
+				Miscellaneous
+			</a><br/>
+		</form>
+<?php
+	}
+?>	
+	</body>
+</html>
